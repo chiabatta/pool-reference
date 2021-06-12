@@ -53,18 +53,24 @@ directory next to (not inside) `chia-blockchain`. Make sure to be on testnet by 
 2. Create two keys, one which will be used for the block rewards from the blockchain, and the other
 which will receive the pool fee that is kept by the pool.
 
-3. Change the `wallet_fingerprint` and `wallet_id` in the `pool.py` constructor, using the information from the first
-key you created in step 2. These can be obtained by doing 'chia wallet show'.
+3. Change the `wallet_fingerprint` and `wallet_id` in the `config.yaml` constructor, using the information from the first
+key you created in step 2. These can be obtained by doing `chia wallet show`.
 
-4. Do `chia keys show` and get the first address for each of the keys created in step 2. Put these into the `pool.py`
-file in `default_target_puzzle_hash` and `pool_fee_puzzle_hash` respectively.
+4. Do `chia keys show` and get the first address for each of the keys created in step 2. Put these into the `config.yaml`
+config file in `default_target_puzzle_hash` and `pool_fee_puzzle_hash` respectively.
    
-5. Change the pool_url in pool.py to point to your external ip or hostname.
+5. Change the pool_url in pool.py to point to your external ip or hostname. 
+   This must match exactly with what the user enters into their UI or CLI, and must start with https://. For now
+   http:// can also be used.
+   
+6. If you would like to test with smaller plots (instead of using k32s), go to the file `default_constants.py` and 
+increase POOL_SUB_SLOT_ITERS from 37600000000 to 37600000000 * (2**11). The default value with difficulty 1 (the lowest)
+   will result in 10 partials per day per k32. This makes it difficult to test due to large plots.
 
-6. Start the node using `chia start farmer`, and log in to a different key (not the two keys created for the pool). 
+7. Start the node using `chia start farmer`, and log in to a different key (not the two keys created for the pool). 
 This will be referred to as the farmer's key here. Sync up your wallet on testnet for the farmer key. 
 
-7. Create a venv (different from chia-blockchain) and start the pool server using the following commands:
+8. Create a venv (different from chia-blockchain) and start the pool server using the following commands:
 
 ```
 cd pool-reference
@@ -74,22 +80,24 @@ pip install ../chia-blockchain/
 sudo CHIA_ROOT="/your/home/dir/.chia/testnet7" ./venv/bin/python pool/pool_server.py
 ```
 
-8. You should see something like this when starting, but no errors:
+You should see something like this when starting, but no errors:
 ```
 INFO:root:Logging in: {'fingerprint': 2164248527, 'success': True}
 INFO:root:Obtaining balance: {'confirmed_wallet_balance': 0, 'max_send_amount': 0, 'pending_change': 0, 'pending_coin_removal_count': 0, 'spendable_balance': 0, 'unconfirmed_wallet_balance': 0, 'unspent_coin_count': 0, 'wallet_id': 1}
 ```
 
-9. Create a pool nft (on the farmer key) by doing `chia poolnft create -u 127.0.0.1:80`, or whatever host:port you want
-to use for your pool. Approve it and wait for transaction confirmation.
+9. Create a pool nft (on the farmer key) by doing `chia plotnft create -u http://127.0.0.1:80`, or whatever host:port you want
+to use for your pool. Approve it and wait for transaction confirmation. This url must match *exactly* with what the 
+   pool uses.
    
-10. Do `chia poolnft show` to ensure that your poolnft is created. Now start making some plots for this pool nft.
+10. Do `chia plotnft show` to ensure that your plotnft is created. Now start making some plots for this pool nft.
 You can make plots by specifying the -c argument in `chia plots create`. Make sure to *not* use the `-p` argument. The 
-    value you should use for -c is the `P2 singleton address` from `chia poolnft show` output.
+    value you should use for -c is the `P2 singleton address` from `chia plotnft show` output.
  You can start with small k25 plots and see if partials are submitted from the farmer to the pool server. The output
 will be the following in the pool if everything is working:
 ```
 INFO:root:Returning {'points_balance': 82629918227, 'current_difficulty': 1963211364}, time: 0.017535686492919922 singleton: 0x1f8dab79a614a82f9834c8f395f5fe195ae020807169b71a10218b9788a7a573
+```
 ```
     
 보상 청구 및 풀 전환은 아직 활성화되지 않았지만 조만간 추가 될 예정입니다. 위에서 설명한 10 단계에 대한 질문이있는 경우 keybase의 @ sorgente711로 메시지를 보내주십시오. 다른 모든 질문은 keybase의 #pools 채널로 보내야합니다. 위의 모든 단계를 다시 플로팅하고 다시 실행해야하는 주요 변경 사항이 곧있을 것입니다.
