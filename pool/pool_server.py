@@ -7,6 +7,7 @@ from typing import Dict, Callable, Optional
 import aiohttp
 from blspy import AugSchemeMPL, PrivateKey
 from aiohttp import web
+from chia.pools.pool_wallet_info import POOL_PROTOCOL_VERSION
 from chia.protocols.pool_protocol import SubmitPartial, PoolInfo
 from chia.util.hash import std_hash
 from chia.consensus.default_constants import DEFAULT_CONSTANTS
@@ -62,13 +63,13 @@ class PoolServer:
 
     async def get_pool_info(self, _) -> web.Response:
         res: PoolInfo = PoolInfo(
-            "The Reference Pool",
-            "https://www.chia.net/img/chia_logo.svg",
+            self.pool.info_name,
+            self.pool.info_logo_url,
             uint64(self.pool.min_difficulty),
             uint32(self.pool.relative_lock_height),
-            "1.0.0",
+            str(POOL_PROTOCOL_VERSION),
             str(self.pool.pool_fee),
-            "(example) The Reference Pool allows you to pool with low fees, paying out daily using Chia.",
+            self.pool.info_description,
             self.pool.default_target_puzzle_hash,
         )
         return obj_to_response(res)
