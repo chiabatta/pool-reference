@@ -21,52 +21,31 @@ partial은 특정 최소 난이도 요구 사항을 충족하는 농부의 추�
 ### Collecting pool rewards
 ![Pool absorbing rewards image](images/absorb.png?raw=true "Absorbing rewards")
 
-The pool periodically searches the blockchain for new pool rewards (1.75 XCH) that go to the various
-`p2_singleton_puzzle_hashes` of each of the farmers. These coins are locked, and can only be spent if they are spent
-along with the singleton that they correspond to. The singleton is also locked to a `target_puzzle_hash`, which in
-this diagram is the red pool address. Anyone can spend the singleton and the `p2_singleton_puzzle_hash` coin, as 
-long as it's a block reward, and all the conditions are met. Some of these conditions require that the singleton
-always create exactly 1 new child singleton with the same launcher id, and that the coinbase funds are sent to the 
-`target_puzzle_hash`.
-
+풀은 주기적으로 블록체인에서 새로운 풀 보상(1.75XCH)을 찾습니다. 이렇게 찾은 새로운 풀 보상(1.75XCH)은 각 farmer의 다양한 `p2_singleton_puzzle_hashes` 로 갑니다.
+이 코인은 잠겨 있으며 해당하는 싱글 톤과 함께 사용하는 경우에만 사용할 수 있습니다.
+싱글 톤은이 다이어그램에서 빨간색 풀 주소 인`target_puzzle_hash`에도 잠겨 있습니다. 싱글 톤과`p2_singleton_puzzle_hash` 코인은 블록 보상이고 모든 조건이 충족되는 한 누구나 사용할 수 있습니다. 이러한 조건 중 일부는 싱글 톤이 항상 동일한 런처 ID로 정확히 1 개의 새로운 하위 싱글 톤을 생성하고 코인베이스 자금이 `target_puzzle_hash`로 전송되어야합니다.
 ### Calculating farmer rewards
 
-Periodically (for example once a day), the pool executes the code in `create_payment_loop`. This first sums up all the 
-confirmed funds in the pool that have a certain number of confirmations.
+주기적으로 (예 : 하루에 한 번) 풀은`create_payment_loop`의 코드를 실행합니다. 이것은 먼저 특정 수의 확인이있는 풀에서 확인 된 모든 자금을 합산합니다.
 
-Then, the pool divides the total amount by the points of all pool members, to obtain the `mojo_per_point` (minus the pool fee
-and the blockchain fee). A new coin gets created for each pool member (and for the pool), and the payments are added
-to the pending_payments list. Note that since blocks have a maximum size, we have to limit the size of each transaction.
-There is a configurable parameter: `max_additions_per_transaction`. After adding the payments to the pending list,
-the pool members' points are all reset to zero. This logic can be customized.
-
+그런 다음 풀은 총 금액을 모든 풀 멤버의 포인트로 나누어`mojo_per_point` (풀 요금과 블록 체인 요금을 뺀)를 얻습니다. 각 풀 멤버 (및 풀)에 대해 새 코인이 생성되고 지불이 pending_payments 목록에 추가됩니다. 블록의 크기는 최대이므로 각 트랜잭션의 크기를 제한해야합니다.
+구성 가능한 매개 변수 인`max_additions_per_transaction`이 있습니다. 보류 목록에 지불을 추가하면 풀 멤버의 포인트가 모두 0으로 재설정됩니다. 이 로직은 사용자 정의 할 수 있습니다.
 
 ### Difficulty adjustment algorithm
-This is a simple difficulty adjustment algorithm executed by the pool. The pool can also improve this or change it 
-however they wish. The farmer can provide their own `suggested_difficulty`, and the pool can decide whether or not
-to update that farmer's difficulty. Be careful to only accept the latest authentication_public_key when setting
-difficulty or pool payout info. The initial reference client and pool do not use the `suggested_difficulty`.
+이것은 풀에서 실행하는 간단한 난이도 조정 알고리즘입니다. 풀은 또한이를 개선하거나 원하는대로 변경할 수 있습니다. 농부는 자신의 `suggested_difficulty`를 제공 할 수 있으며 풀은 해당 농부의 난이도 업데이트 여부를 결정할 수 있습니다. 난이도 또는 풀 지불 정보를 설정할 때 최신 authentication_public_key 만 허용하도록주의하십시오. 초기 참조 클라이언트 및 풀은`suggested_difficulty`를 사용하지 않습니다.
 
-- Obtain the last successful partial for this launcher id
-- If > 3 hours, divide difficulty by 5
-- If > 45 minutes < 6 hours, divide difficulty by 1.5
-- If < 45 minutes:
-   - If have < 300 partials at this difficulty, maintain same difficulty
-   - Else, multiply the difficulty by (24 * 3600 / (time taken for 300 partials))
+-이 런처 ID에 대해 마지막으로 성공한 부분 획득
+-3 시간 이상이면 난이도를 5로 나눕니다.
+-45 분 초과 6 시간 미만인 경우 난이도를 1.5로 나눕니다.
+-45 분 미만인 경우 :
+   -이 난이도에서 부분이 300 개 미만이면 동일한 난이도 유지
+   -그렇지 않으면 난이도에 (24 * 3600 / (300 부분 소요 시간))을 곱하십시오.
   
-The 6 hours is used to handle rare cases where a farmer's storage drops dramatically. The 45 minutes is similar, but
-for less extreme cases. Finally, the last case of < 45 minutes should properly handle users with increasing space,
-or slightly decreasing space. This targets 300 partials per day, but different numbers can be used based on
-performance and user preference.
-
+6 시간은 농부의 저장고가 급격히 떨어지는 드문 경우를 처리하는 데 사용됩니다. 45 분은 비슷하지만 덜 극단적 인 경우입니다. 마지막으로 45 분 미만의 마지막 경우는 공간을 늘리거나 공간을 약간 줄인 사용자를 적절히 처리해야합니다. 이는 하루에 300 개의 부분을 대상으로하지만 성능 및 사용자 선호도에 따라 다른 숫자를 사용할 수 있습니다.
 ### Making payments
-Note that the payout info is provided with each partial. The user can choose where rewards are paid out to, and this
-does not have to be an XCH address. The pool should ONLY update the payout info for successful partials with the
-latest seen authentication key for that launcher_id.
-
-
+지급 정보는 각 부분과 함께 제공됩니다. 사용자는 보상이 지급되는 위치를 선택할 수 있으며 XCH 주소일 필요는 없습니다. 풀은 해당 launcher_id에 대해 가장 최근에 확인 된 인증 키로 성공적인 부분에 대한 지불 정보 만 업데이트해야합니다.
 ### Install and run (Testnet)
-To run a pool, you must use this along with a branch of `chia-blockchain`.
+풀을 돌리기 위해선 반드시 `chia-blockchain`과 더불어 아래의 branch들을 사용해야 합니다.
 
 1. Checkout the `pools.2021-may-25` branch of `chia-blockchain`, and install it. Checkout this repo in another
 directory next to (not inside) `chia-blockchain`. Make sure to be on testnet by doing `export CHIA_ROOT=".chia/testnet7"` and `chia configure --testnet true`.
@@ -113,9 +92,4 @@ will be the following in the pool if everything is working:
 INFO:root:Returning {'points_balance': 82629918227, 'current_difficulty': 1963211364}, time: 0.017535686492919922 singleton: 0x1f8dab79a614a82f9834c8f395f5fe195ae020807169b71a10218b9788a7a573
 ```
     
-Note that claiming rewards and switching pools are still not enabled, but these will be added very shortly. Please
-send a message to @sorgente711 on keybase if you have questions about the 10 steps explained above. All other questions
-should be send to the #pools channel in keybase. Note that there will probably be breaking changes soon which will
-require re-plotting and re-running all the steps above.
-
-
+보상 청구 및 풀 전환은 아직 활성화되지 않았지만 조만간 추가 될 예정입니다. 위에서 설명한 10 단계에 대한 질문이있는 경우 keybase의 @ sorgente711로 메시지를 보내주십시오. 다른 모든 질문은 keybase의 #pools 채널로 보내야합니다. 위의 모든 단계를 다시 플로팅하고 다시 실행해야하는 주요 변경 사항이 곧있을 것입니다.
