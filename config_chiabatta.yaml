@@ -1,0 +1,24 @@
+pool_info:
+  default_res: Chiabatta pool
+  name: The Chiabatta Pool
+  logo_url: https://codev.kr/images/project/chia/logo.png
+  description: The most reliable and transparent Chia farming pool from South Korea
+welcome_message: "Join Chiabatta pool to enjoy reliable farming pool service! We are transparent and reriable South Korea farming pool."
+pool_fee: 0.01
+pool_url: http://chiabatta.xyz
+min_difficulty: 10
+default_difficulty: 10
+default_target_address: txch1jmzgpl7dgyw3x70vmuks5jgf5gpa4xm4q0k6m6pv0jsu2wzn6jfsu2u775
+pool_fee_address: txch1424d99cec2ek0gpdyct7u2epwj2y7dzrsvpez77yhtsn9uu86xmsj54t0t
+wallet_fingerprint: 1937927612
+authentication_token_timeout: 5
+wallet_id: 2
+partial_time_limit: 25
+partial_confirmation_delay: 30
+scan_start_height: 1000
+collect_pool_rewards_interval: 600
+confirmation_security_threshold: 6
+payment_interval: 600
+max_additions_per_transaction: 400
+number_of_partials_target: 50
+time_target: 8640
