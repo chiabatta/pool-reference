@@ -9,6 +9,7 @@
 * 취할 수수료 및 블록 체인 수수료로 지불 할 금액
 * 지불시 farmer의 포인트가 계산되는 방법 (PPS, PPLNS 등)
 * farmer가 지불금을받는 방법 (XCH, BTC, ETH 등) 및 빈도
+* 사용되는 저장소 (DB)-기본적으로 SQLite db입니다. 사용자는`AbstractPoolStore`를 기반으로하는 자체 스토어 구현을`pool_server.start_pool_server`에 제공하여 사용할 수 있습니다.
 
 그러나 일부는 변경할 수 없습니다. 이는 SPECIFICATION.md에 설명되어 있으며 주로 유효성 검사, 프로토콜 및 스마트 코인의 싱글톤 형식과 관련이 있습니다.
 
@@ -73,7 +74,7 @@ cd pool-reference
 python3 -m venv ./venv
 source ./venv/bin/activate
 pip install ../chia-blockchain/ 
-sudo CHIA_ROOT="/your/home/dir/.chia/testnet7" ./venv/bin/python pool/pool_server.py
+sudo CHIA_ROOT="/your/home/dir/.chia/testnet7" ./venv/bin/python -m pool
 ```
 
 You should see something like this when starting, but no errors:
