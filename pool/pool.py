@@ -1,10 +1,11 @@
 import asyncio
 import logging
+import pathlib
 import time
 import traceback
 from asyncio import Task
 from math import floor
-from typing import Dict, Optional, Set, List, Tuple
+from typing import Dict, Optional, Set, List, Tuple, Callable
 
 import os
 import yaml
@@ -36,6 +37,7 @@ from chia.types.end_of_slot_bundle import EndOfSubSlotBundle
 from chia.types.blockchain_format.sized_bytes import bytes32
 from chia.consensus.pot_iterations import calculate_iterations_quality
 from chia.util.lru_cache import LRUCache
+from chia.util.chia_logging import initialize_logging
 from chia.wallet.transaction_record import TransactionRecord
 from chia.pools.pool_puzzles import (
     get_most_recent_singleton_coin_from_coin_solution,
@@ -52,7 +54,8 @@ from .util import error_dict
 
 
 class Pool:
-    def __init__(self, config: Dict, constants: ConsensusConstants, pool_store: Optional[AbstractPoolStore] = None):
+    def __init__(self, config: Dict, constants: ConsensusConstants, pool_store: Optional[AbstractPoolStore] = None,
+                 difficulty_function: Callable = get_new_difficulty):
         self.follow_singleton_tasks: Dict[bytes32, asyncio.Task] = {}
         self.log = logging
         # If you want to log to a file: use filename='example.log', encoding='utf-8'
@@ -61,6 +64,8 @@ class Pool:
         # We load our configurations from here
         with open(os.getcwd() + "/config.yaml") as f:
             pool_config: Dict = yaml.safe_load(f)
+
+        initialize_logging("pool", pool_config["logging"], pathlib.Path(pool_config["logging"]["log_path"]))
 
         # Set our pool info here
         self.info_default_res = pool_config["pool_info"]["default_res"]
@@ -80,13 +85,14 @@ class Pool:
         self.iters_limit = self.constants.POOL_SUB_SLOT_ITERS // 64
 
         # This number should not be changed, since users will put this into their singletons
-        self.relative_lock_height = uint32(100)
+        self.relative_lock_height = uint32(pool_config["relative_lock_height"])
 
         # TODO(pool): potentially tweak these numbers for security and performance
         # This is what the user enters into the input field. This exact value will be stored on the blockchain
         self.pool_url = pool_config["pool_url"]
         self.min_difficulty = uint64(pool_config["min_difficulty"])  # 10 difficulty is about 1 proof a day per plot
         self.default_difficulty: uint64 = uint64(pool_config["default_difficulty"])
+        self.difficulty_function: Callable = difficulty_function
 
         self.pending_point_partials: Optional[asyncio.Queue] = None
         self.recent_points_added: LRUCache = LRUCache(20000)
@@ -385,7 +391,8 @@ class Pool:
                             {"puzzle_hash": self.pool_fee_puzzle_hash, "amount": pool_coin_amount}
                         ]
                         for points, ph in points_and_ph:
-                            additions_sub_list.append({"puzzle_hash": ph, "amount": points * mojo_per_point})
+                            if points > 0:
+                                additions_sub_list.append({"puzzle_hash": ph, "amount": points * mojo_per_point})
 
                             if len(additions_sub_list) == self.max_additions_per_transaction:
                                 await self.pending_payments.put(additions_sub_list.copy())
@@ -535,8 +542,7 @@ class Pool:
 
                 if farmer_record.is_pool_member:
                     await self.store.add_partial(partial.payload.launcher_id, uint64(int(time.time())), points_received)
-
-                self.log.info(f"Farmer {farmer_record.launcher_id} updated points to: " f"{farmer_record.points}")
+                    self.log.info(f"Farmer {farmer_record.launcher_id} updated points to: " f"{farmer_record.points + points_received}")
         except Exception as e:
             error_stack = traceback.format_exc()
             self.log.error(f"Exception in confirming partial: {e} {error_stack}")
@@ -694,52 +700,63 @@ class Pool:
                     farmer_rec,
                     self.blockchain_state["peak"].height,
                     self.confirmation_security_threshold,
+                    self.constants.GENESIS_CHALLENGE,
                 )
             )
             self.follow_singleton_tasks[launcher_id] = singleton_task
             remove_after = True
 
-        optional_result: Optional[Tuple[CoinSolution, PoolState]] = await singleton_task
+        optional_result: Optional[Tuple[CoinSolution, PoolState, PoolState]] = await singleton_task
         if remove_after and launcher_id in self.follow_singleton_tasks:
             await self.follow_singleton_tasks.pop(launcher_id)
 
         if optional_result is None:
             return None
 
-        singleton_tip, singleton_tip_state = optional_result
+        buried_singleton_tip, buried_singleton_tip_state, singleton_tip_state = optional_result
 
         # Validate state of the singleton
         is_pool_member = True
         if singleton_tip_state.target_puzzle_hash != self.default_target_puzzle_hash:
-            self.log.info(f"Wrong target puzzle hash: {singleton_tip_state.target_puzzle_hash}")
+            self.log.info(
+                f"Wrong target puzzle hash: {singleton_tip_state.target_puzzle_hash} for launcher_id {launcher_id}"
+            )
             is_pool_member = False
         elif singleton_tip_state.relative_lock_height != self.relative_lock_height:
-            self.log.info(f"Wrong relative lock height: {singleton_tip_state.relative_lock_height}")
+            self.log.info(
+                f"Wrong relative lock height: {singleton_tip_state.relative_lock_height} for launcher_id {launcher_id}"
+            )
             is_pool_member = False
         elif singleton_tip_state.version != POOL_PROTOCOL_VERSION:
-            self.log.info(f"Wrong version {singleton_tip_state.version}")
+            self.log.info(f"Wrong version {singleton_tip_state.version} for launcher_id {launcher_id}")
             is_pool_member = False
         elif singleton_tip_state.state == PoolSingletonState.SELF_POOLING.value:
-            self.log.info(f"Invalid singleton state {singleton_tip_state.state}")
+            self.log.info(f"Invalid singleton state {singleton_tip_state.state} for launcher_id {launcher_id}")
             is_pool_member = False
         elif singleton_tip_state.state == PoolSingletonState.LEAVING_POOL.value:
-            coin_record: Optional[CoinRecord] = await self.node_rpc_client.get_coin_record_by_name(singleton_tip.coin)
+            coin_record: Optional[CoinRecord] = await self.node_rpc_client.get_coin_record_by_name(
+                buried_singleton_tip.coin
+            )
             assert coin_record is not None
             if self.blockchain_state["peak"].height - coin_record.confirmed_block_index > self.relative_lock_height:
+                self.log.info(f"launcher_id {launcher_id} got enough confirmations to leave the pool")
                 is_pool_member = False
 
         self.log.info(f"Is {launcher_id} pool member: {is_pool_member}")
 
         if farmer_rec is not None and (
-            farmer_rec.singleton_tip != singleton_tip or farmer_rec.singleton_tip_state != singleton_tip_state
+            farmer_rec.singleton_tip != buried_singleton_tip
+            or farmer_rec.singleton_tip_state != buried_singleton_tip_state
         ):
             # This means the singleton has been changed in the blockchain (either by us or someone else). We
             # still keep track of this singleton if the farmer has changed to a different pool, in case they
             # switch back.
             self.log.info(f"Updating singleton state for {launcher_id}")
-            await self.store.update_singleton(launcher_id, singleton_tip, singleton_tip_state, is_pool_member)
+            await self.store.update_singleton(
+                launcher_id, buried_singleton_tip, buried_singleton_tip_state, is_pool_member
+            )
 
-        return singleton_tip, singleton_tip_state, is_pool_member
+        return buried_singleton_tip, buried_singleton_tip_state, is_pool_member
 
     async def process_partial(
         self,
@@ -758,12 +775,11 @@ class Pool:
                 f"The aggregate signature is invalid {partial.aggregate_signature}",
             )
 
-        # TODO (chia-dev): Check DB p2_singleton_puzzle_hash and compare
-        # if partial.payload.proof_of_space.pool_contract_puzzle_hash != p2_singleton_puzzle_hash:
-        #     return error_dict(
-        #       PoolErrorCode.INVALID_P2_SINGLETON_PUZZLE_HASH,
-        #       f"Invalid plot pool contract puzzle hash {partial.payload.proof_of_space.pool_contract_puzzle_hash}"
-        #     )
+        if partial.payload.proof_of_space.pool_contract_puzzle_hash != farmer_record.p2_singleton_puzzle_hash:
+            return error_dict(
+                PoolErrorCode.INVALID_P2_SINGLETON_PUZZLE_HASH,
+                f"Invalid pool contract puzzle hash {partial.payload.proof_of_space.pool_contract_puzzle_hash}",
+            )
 
         async def get_signage_point_or_eos():
             if partial.payload.end_of_sub_slot:
@@ -799,7 +815,7 @@ class Pool:
         if signage_point is not None:
             challenge_hash: bytes32 = signage_point.cc_vdf.challenge
         else:
-            challenge_hash = end_of_sub_slot.challenge_chain.challenge_chain_end_of_slot_vdf.get_hash()
+            challenge_hash = end_of_sub_slot.challenge_chain.get_hash()
 
         quality_string: Optional[bytes32] = partial.payload.proof_of_space.verify_and_get_quality_string(
             self.constants, challenge_hash, partial.payload.sp_hash
@@ -834,7 +850,7 @@ class Pool:
                     partial.payload.launcher_id, self.number_of_partials_target
                 )
                 # Only update the difficulty if we meet certain conditions
-                new_difficulty: uint64 = get_new_difficulty(
+                new_difficulty: uint64 = self.difficulty_function(
                     recent_partials,
                     int(self.number_of_partials_target),
                     int(self.time_target),

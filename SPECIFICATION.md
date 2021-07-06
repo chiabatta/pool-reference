@@ -5,6 +5,19 @@ It relies on farmers having smart coins (referred to as Pool NFTs in GUI + CLI) 
 by making transactions on the blockchain. Furthermore, it decreases the reliance on pools for block production, since
 the protocol only handles distribution of rewards, and it protects against pools or farmers acting maliciously.
 
+
+## Security considerations
+The pool must ensure that partials arrive quickly, faster than the 28 second time limit of inclusion into the
+blockchain. This allows farmers that have slow setups to detect issues.
+
+The Pool server must check that the `pool_contract_puzzle_hash` a.k.a. `p2_singleton_puzzle_hash` matches the
+puzzle that they expect. Otherwise, the pool has no guarantee that users will not attempt to claim block rewards
+for themselves, and immediately leave the pool, something that the provided smart contract prevents.
+
+The Chia client must only connect to the pool configuration URL via HTTPS over TLS >= 1.2. This is to
+prevent session hijacking, leading to user funds being stolen.
+
+
 ## Parties
 
 The parties involved in the pool protocol are the pool operator and farmers. Each farmer is running
@@ -87,6 +100,13 @@ message_hash = sha256(serialized_payload)
 
 The serialized payload must follow the `Streamable` standard defined
 [here](https://github.com/Chia-Network/chia-blockchain/blob/main/chia/util/streamable.py).
+
+## Pool URL
+The pool URL is the url that farmers use to connect to the pool. The subdomains, port, and path are optional. The client
+will use 443 if there is no port. Note that the trailing slash must NOT be present. Everything must be lower case.
+```
+https://subdomain.domain.tld:port/path
+```
 
 ## GET /pool_info
 
@@ -188,6 +208,9 @@ according to [Signature validation](#signature-validation) and the signature mus
 where the parameter must be serialized and hashed according to [Signature validation](#signature-validation) and the
 signature must be signed by the private key of the `authentication_public_key` using the Augmented Scheme in the BLS
 IETF spec.
+
+Note: The pool MUST return the current points balance, which is the total number of points found since the last 
+payout for that user. 
 
 ## POST /farmer
 Register a farmer with the pool. This is required once before submitting the first partial.
@@ -439,11 +462,6 @@ where the parameter must be serialized and hashed according to [Signature valida
 signature must be signed by the private key of the `authentication_public_key` using the Augmented Scheme in the BLS
 IETF spec.
 
-## 1/8 vs 7/8
-Note that the coinbase rewards in Chia are divided into two coins: the farmer coin and the pool coin. The farmer coin
-(1/8) only goes to the puzzle hash signed by the farmer private key, while the pool coin (7/8) goes to the pool.
-The user transaction fees on the blockchain are included in the farmer coin as well. This split of 7/8 1/8 exists
-to prevent attacks where one pool tries to destroy another by farming partials, but never submitting winning blocks.
 
 ## Difficulty
 The difficulty allows the pool operator to control how many partials per day they are receiving from each farmer.
@@ -462,7 +480,3 @@ For example, 100 TiB of space should yield approximately 10,000 points per day, 
 100 or 200. It should not matter what difficulty is set for a farmer, as long as they are consistently submitting partials.
 The specification does not require pools to pay out proportionally by points, but the payout scheme should be clear to
 farmers, and points should be acknowledged and accumulated points returned in the response.
-
-## Security considerations
-The pool must ensure that partials arrive quickly, faster than the 28 second time limit of inclusion into the
-blockchain. This allows farmers that have slow setups to detect issues.
