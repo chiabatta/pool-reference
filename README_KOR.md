@@ -1,6 +1,11 @@
-이 프로토 타입은 아직 지원되지 않으며 아직 개발 중입니다. 
+## Pool Reference V1
 이 코드는 Apache 2.0 라이선스에 따라 제공됩니다. 
 참고 : 초안 사양은 SPECIFICATION.md 파일에 있습니다.
+
+### Summary
+이 저장소는 Chia Pool의 기반 역할을 하는 Python으로 작성된 샘플 서버를 제공합니다.
+이것은 완전한 기능의 구현이지만 프로덕션에서 실행하려면 확장 성과 보안에 대한 약간의 작업이 필요합니다.
+An FAQ is provided here: https://github.com/Chia-Network/chia-blockchain/wiki/Pooling-FAQ
 
 ### Customizing
 커스터마이징 가능한 것들
@@ -13,6 +18,46 @@
 
 그러나 일부는 변경할 수 없습니다. 이는 SPECIFICATION.md에 설명되어 있으며 주로 유효성 검사, 프로토콜 및 스마트 코인의 싱글톤 형식과 관련이 있습니다.
 
+### Pool Protocol Benefits
+Chia 풀 프로토콜은 제3자, 폐쇄 된 코드 또는 신뢰할 수 있는 행동에 의존하지 않고 보안 및 탈 중앙화를 위해 설계되었습니다.
+
+* farmer는 중복파밍으로 pool에서 정상적이지 않게 보상을 가져 갈 수 없습니다.
+* farmer는 pool에 참여하기 위해 담보가 필요하지 않으며 싱글 톤을 만드는 데 몇 센트 만 필요합니다.
+* farmer는 원하는 경우 쉽고 안전하게 풀을 변경할 수 있습니다.
+* farmer는 풀 노드를 실행할 수 있습니다 (분권화 증가).
+* farmer는 24 개의 단어만으로 다른 컴퓨터에 로그인 할 수 있으며, 중앙 서버 없이도 풀링 구성이 설정됩니다.
+
+### Pool Protocol Summary
+풀링하지 않을 때 농부는 9 초마다 전체 노드에서 간판 포인트를 받고이 간판 포인트를 수확기에 보냅니다. 각 사이 니지 포인트는 `sub_slot_iters`및 `difficulty`와 함께 전송되며, 매일 조정되는 두 개의 네트워크 전체 매개 변수 (4608 개 블록)입니다. `sub_slot_iters`는 네트워크에서 가장 빠른 VDF에 대해 10 분 동안 수행 된 VDF 반복 횟수입니다. 가장 빠른 타임로드의 속도가 증가하면 증가합니다. 난이도는 타임로드 속도의 영향을 받지만 (블록이 더 빨라지므로 타임로드 속도가 증가하면 증가합니다) 네트워크의 총 공간에도 영향을받습니다. 이 두 매개 변수는 블록을 "승리"하고 증명을 찾는 것이 얼마나 어려운지를 결정합니다.
+
+Since only about 1 farmer wordwide finds a proof every 18.75 seconds, this means the chances of finding one are 
+extremely small, with the default `difficulty` and `sub_slot_iters`. For pooling, what we do is we increase the 
+`sub_slot_iters` to a constant, but very high number: 37600000000, and then we decrease the difficulty to an
+artificially lower one, so that proofs can be found more frequently.
+
+The farmer communicates with one or several pools through an HTTPS protocol, and sets their own local difficulty for
+each pool. Then, when sending signage points to the harvester, the pool `difficulty` and `sub_slot_iters` are used. 
+This means that the farmer can find proofs very often, perhaps every 10 minutes, even for small farmers. These proofs,
+however, are not sent to the full node to create a block. They are instead only sent to the pool. This means that the 
+other full nodes in the network do not have to see and validate everyone else's proofs, and the network can scale to
+millions of farmers with no issue, as long as the pool scales properly. Since many farmers are part of the pool,
+only 1 farmer needs to win a block, for the entire pool to be rewarded proportionally to their space.
+
+The pool then keeps track of how many proofs (partials) each farmer sends, weighing them by difficulty. Occasionally 
+(for example every 3 days), the pool can perform a payout to farmers based on how many partials they submitted. Farmers
+with more space, and thus more points, will get linearly more rewards. 
+
+Instead of farmers using a `pool_public_key` when plotting, they now use a puzzle hash, referred to as the 
+`p2_singleton_puzzle_hash`, also known as the `pool_contract_address`. These values go into the plot itself, and 
+cannot be changed after creating the plot, since they are hashed into the `plot_id`. The pool contract address is the
+address of a chialisp contract called a singleton. The farmer must first create a singleton on the blockchain, which
+stores the pool information of the pool that that singleton is assigned to. When making a plot, the address of that
+singleton is used, and therefore that plot is tied to that singleton forever. When a block is found by the farmer, 
+the pool portion of the block rewards (7/8, or 1.75XCH) go into the singleton, and when claimed, 
+go directly to the pool's target address. 
+
+The farmer can also configure their payout instructions, so that the pool knows where to send the occasional rewards
+to.
 ### Receiving partials
 partial은 특정 최소 난이도 요구 사항을 충족하는 농부의 추가 메타 데이터 및 인증 정보가 포함된 공간 증명입니다. 부분은 블록 체인 사이 니지 포인트에 응답하는 공간의 실제 증거 여야하며 블록 체인 시간 창 (사이 니지 포인트 후 28 초) 내에 제출해야합니다.
 
@@ -32,6 +77,30 @@ partial은 특정 최소 난이도 요구 사항을 충족하는 농부의 추�
 그런 다음 풀은 총 금액을 모든 풀 멤버의 포인트로 나누어`mojo_per_point` (풀 요금과 블록 체인 요금을 뺀)를 얻습니다. 각 풀 멤버 (및 풀)에 대해 새 코인이 생성되고 지불이 pending_payments 목록에 추가됩니다. 블록의 크기는 최대이므로 각 트랜잭션의 크기를 제한해야합니다.
 구성 가능한 매개 변수 인`max_additions_per_transaction`이 있습니다. 보류 목록에 지불을 추가하면 풀 멤버의 포인트가 모두 0으로 재설정됩니다. 이 로직은 사용자 정의 할 수 있습니다.
 
+### 1/8 vs 7/8
+Note that the coinbase rewards in Chia are divided into two coins: the farmer coin and the pool coin. The farmer coin
+(1/8) only goes to the puzzle hash signed by the farmer private key, while the pool coin (7/8) goes to the pool.
+The user transaction fees on the blockchain are included in the farmer coin as well. This split of 7/8 1/8 exists
+to prevent attacks where one pool tries to destroy another by farming partials, but never submitting winning blocks.
+
+### Difficulty
+The difficulty allows the pool operator to control how many partials per day they are receiving from each farmer.
+The difficulty can be adjusted separately for each farmer. A reasonable target would be 300 partials per day,
+to ensure frequent feedback to the farmer, and low variability.
+A difficulty of 1 results in approximately 10 partials per day per k32 plot. This is the minimum difficulty that
+the V1 of the protocol supports is 1. However, a pool may set a higher minimum difficulty for efficiency. When
+calculating whether a proof is high quality enough for being awarded points, the pool should use
+`sub_slot_iters=37600000000`.
+If the farmer submits a proof that is not good enough for the current difficulty, the pool should respond by setting
+the `current_difficulty` in the response.
+
+### Points
+X points are awarded for submitting a partial with difficulty X, which means that points scale linearly with difficulty.
+For example, 100 TiB of space should yield approximately 10,000 points per day, whether the difficulty is set to
+100 or 200. It should not matter what difficulty is set for a farmer, as long as they are consistently submitting partials.
+The specification does not require pools to pay out proportionally by points, but the payout scheme should be clear to
+farmers, and points should be acknowledged and accumulated points returned in the response.
+
 ### Difficulty adjustment algorithm
 이것은 풀에서 실행하는 간단한 난이도 조정 알고리즘입니다. 풀은 또한이를 개선하거나 원하는대로 변경할 수 있습니다. 농부는 자신의 `suggested_difficulty`를 제공 할 수 있으며 풀은 해당 농부의 난이도 업데이트 여부를 결정할 수 있습니다. 난이도 또는 풀 지불 정보를 설정할 때 최신 authentication_public_key 만 허용하도록주의하십시오. 초기 참조 클라이언트 및 풀은`suggested_difficulty`를 사용하지 않습니다.
 
@@ -46,7 +115,7 @@ partial은 특정 최소 난이도 요구 사항을 충족하는 농부의 추�
 ### Making payments
 지급 정보는 각 부분과 함께 제공됩니다. 사용자는 보상이 지급되는 위치를 선택할 수 있으며 XCH 주소일 필요는 없습니다. 풀은 해당 launcher_id에 대해 가장 최근에 확인 된 인증 키로 성공적인 부분에 대한 지불 정보 만 업데이트해야합니다.
 ### Install and run (Testnet)
-풀을 돌리기 위해선 반드시 `chia-blockchain`과 더불어 아래의 branch들을 사용해야 합니다.
+풀을 돌리기 위해선 반드시 `chia-blockchain`의 메인브랜치를 사용해야 합니다.
 
 1. Checkout the `pools.dev` branch of `chia-blockchain`, and install it. Checkout this repo in another
 directory next to (not inside) `chia-blockchain`. Make sure to be on testnet by doing `export CHIA_ROOT=".chia/testnet7"` and `chia configure --testnet true`.
@@ -60,8 +129,7 @@ key you created in step 2. These can be obtained by doing `chia wallet show`.
 config file in `default_target_address` and `pool_fee_address` respectively.
    
 5. Change the `pool_url` in `config.yaml` to point to your external ip or hostname. 
-   This must match exactly with what the user enters into their UI or CLI, and must start with https://. For now
-   http:// can also be used.
+   This must match exactly with what the user enters into their UI or CLI, and must start with https://.
    
 6. Start the node using `chia start farmer`, and log in to a different key (not the two keys created for the pool). 
 This will be referred to as the farmer's key here. Sync up your wallet on testnet for the farmer key. 
@@ -74,7 +142,7 @@ cd pool-reference
 python3 -m venv ./venv
 source ./venv/bin/activate
 pip install ../chia-blockchain/ 
-sudo CHIA_ROOT="/your/home/dir/.chia/testnet7" ./venv/bin/python -m pool
+sudo CHIA_ROOT="/your/home/dir/.chia/testnet9" ./venv/bin/python -m pool
 ```
 
 You should see something like this when starting, but no errors:
@@ -83,7 +151,7 @@ INFO:root:Logging in: {'fingerprint': 2164248527, 'success': True}
 INFO:root:Obtaining balance: {'confirmed_wallet_balance': 0, 'max_send_amount': 0, 'pending_change': 0, 'pending_coin_removal_count': 0, 'spendable_balance': 0, 'unconfirmed_wallet_balance': 0, 'unspent_coin_count': 0, 'wallet_id': 1}
 ```
 
-8. Create a pool nft (on the farmer key) by doing `chia plotnft create -u http://127.0.0.1:80`, or whatever host:port you want
+8. Create a pool nft (on the farmer key) by doing `chia plotnft create -s pool -u http://127.0.0.1:80`, or whatever host:port you want
 to use for your pool. Approve it and wait for transaction confirmation. This url must match *exactly* with what the 
    pool uses.
    
@@ -93,7 +161,7 @@ You can make plots by specifying the -c argument in `chia plots create`. Make su
  You can start with small k25 plots and see if partials are submitted from the farmer to the pool server. The output
 will be the following in the pool if everything is working:
 ```
-INFO:root:Returning {'current_difficulty': 1963211364}, time: 0.017535686492919922 singleton: 0x1f8dab79a614a82f9834c8f395f5fe195ae020807169b71a10218b9788a7a573
+INFO:root:Returning {'new_difficulty': 1963211364}, time: 0.017535686492919922 singleton: 0x1f8dab79a614a82f9834c8f395f5fe195ae020807169b71a10218b9788a7a573
 ```
     
 위에 설명 된 9 단계에 대한 질문이있는 경우 keybase의 @ sorgente711로 메시지를 보내주십시오. 기타 모든 질문
