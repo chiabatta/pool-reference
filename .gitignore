@@ -1,5 +1,5 @@
-config.yaml
 .idea
 venv
+poolref
 __pycache__
 *.sqlite
