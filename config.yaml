@@ -12,7 +12,7 @@ default_target_address: txch1jmzgpl7dgyw3x70vmuks5jgf5gpa4xm4q0k6m6pv0jsu2wzn6jf
 pool_fee_address: txch1424d99cec2ek0gpdyct7u2epwj2y7dzrsvpez77yhtsn9uu86xmsj54t0t
 wallet_fingerprint: 1937927612
 authentication_token_timeout: 5
-wallet_id: 2
+wallet_id: 1
 node_rpc_port: 8555
 wallet_rpc_port: 9256
 partial_time_limit: 25
