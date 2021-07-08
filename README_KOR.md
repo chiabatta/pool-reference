@@ -117,8 +117,10 @@ farmers, and points should be acknowledged and accumulated points returned in th
 ### Install and run (Testnet)
 풀을 돌리기 위해선 반드시 `chia-blockchain`의 메인브랜치를 사용해야 합니다.
 
-1. Checkout the `pools.dev` branch of `chia-blockchain`, and install it. Checkout this repo in another
-directory next to (not inside) `chia-blockchain`. Make sure to be on testnet by doing `export CHIA_ROOT=".chia/testnet7"` and `chia configure --testnet true`.
+1. Checkout the `main` branch of `chia-blockchain`, and install it. Checkout this repo in another directory next to (not inside) `chia-blockchain`.  
+If you want to connect to testnet, use `export CHIA_ROOT=~/.chia/testnet9`, or whichever testnet you want to join, and 
+   run `chia configure -t true`. You can also directly use the `pools.testnet9` branch, although this branch will
+   be removed in the future (or past).
 
 2. Create three keys, one which will be used for the block rewards from the blockchain, one to receive the pool fee that is kept by the pool, and the third to be a wallet that acts as a test user.
 
@@ -142,7 +144,7 @@ cd pool-reference
 python3 -m venv ./venv
 source ./venv/bin/activate
 pip install ../chia-blockchain/ 
-sudo CHIA_ROOT="/your/home/dir/.chia/testnet9" ./venv/bin/python -m pool
+sudo CHIA_ROOT="~/.chia/testnet9" ./venv/bin/python -m pool
 ```
 
 You should see something like this when starting, but no errors:
