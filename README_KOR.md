@@ -15,6 +15,7 @@ An FAQ is provided here: https://github.com/Chia-Network/chia-blockchain/wiki/Po
 * 지불시 farmer의 포인트가 계산되는 방법 (PPS, PPLNS 등)
 * farmer가 지불금을받는 방법 (XCH, BTC, ETH 등) 및 빈도
 * 사용되는 저장소 (DB)-기본적으로 SQLite db입니다. 사용자는`AbstractPoolStore`를 기반으로하는 자체 스토어 구현을`pool_server.start_pool_server`에 제공하여 사용할 수 있습니다.
+* 로그인 성공 후 (응답 측면에서) 어떻게 되나요?
 
 그러나 일부는 변경할 수 없습니다. 이는 SPECIFICATION.md에 설명되어 있으며 주로 유효성 검사, 프로토콜 및 스마트 코인의 싱글톤 형식과 관련이 있습니다.
 
@@ -83,6 +84,8 @@ Note that the coinbase rewards in Chia are divided into two coins: the farmer co
 The user transaction fees on the blockchain are included in the farmer coin as well. This split of 7/8 1/8 exists
 to prevent attacks where one pool tries to destroy another by farming partials, but never submitting winning blocks.
 
+Chia의 코인베이스 보상은 농부 코인과 풀 코인의 두 코인으로 나뉩니다. 농부 코인 (1/8)은 농부 개인 키로 서명 된 퍼즐 해시로만 이동하고 풀 코인 (7/8)은 풀로 이동합니다. 블록 체인의 사용자 거래 수수료는 농부 코인에도 포함됩니다. 이 7/8 1/8 분할은 한 풀이 부분을 파밍하여 다른 풀을 파괴하려고하지만 승리 블록을 제출하지 않는 공격을 방지하기 위해 존재합니다.
+
 ### Difficulty
 The difficulty allows the pool operator to control how many partials per day they are receiving from each farmer.
 The difficulty can be adjusted separately for each farmer. A reasonable target would be 300 partials per day,
@@ -141,10 +144,10 @@ You can log in to a key by running `chia wallet show` and then choosing each wal
 
 ```
 cd pool-reference
-python3 -m venv ./venv
-source ./venv/bin/activate
+python3 -m venv ./poolref
+source ./poolref/bin/activate
 pip install ../chia-blockchain/ 
-sudo CHIA_ROOT="~/.chia/testnet9" ./venv/bin/python -m pool
+sudo CHIA_ROOT="~/.chia/testnet9" ./poolref/bin/python -m pool
 ```
 
 You should see something like this when starting, but no errors:
