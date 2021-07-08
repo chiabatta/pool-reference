@@ -8,8 +8,8 @@ pool_fee: 0.01
 pool_url: https://chiabatta.xyz
 min_difficulty: 10
 default_difficulty: 10
-default_target_address: txch1jmzgpl7dgyw3x70vmuks5jgf5gpa4xm4q0k6m6pv0jsu2wzn6jfsu2u775
-pool_fee_address: txch1424d99cec2ek0gpdyct7u2epwj2y7dzrsvpez77yhtsn9uu86xmsj54t0t
+default_target_address: xch1jmzgpl7dgyw3x70vmuks5jgf5gpa4xm4q0k6m6pv0jsu2wzn6jfs3dmgl8
+pool_fee_address: xch1424d99cec2ek0gpdyct7u2epwj2y7dzrsvpez77yhtsn9uu86xmslnjawc
 wallet_fingerprint: 1937927612
 authentication_token_timeout: 5
 wallet_id: 1
