@@ -5,6 +5,7 @@ pool_info:
   description: The most reliable and transparent Chia farming pool from South Korea
 welcome_message: "Join Chiabatta pool to enjoy reliable farming pool service! We are transparent and reriable South Korea farming pool."
 pool_fee: 0.01
+block_claim_fee: 0
 pool_url: https://chiabatta.xyz
 min_difficulty: 10
 default_difficulty: 10
@@ -16,10 +17,10 @@ wallet_id: 1
 node_rpc_port: 8555
 wallet_rpc_port: 9256
 partial_time_limit: 25
-partial_confirmation_delay: 30
+partial_confirmation_delay: 300
 scan_start_height: 1000
 collect_pool_rewards_interval: 600
-confirmation_security_threshold: 6
+confirmation_security_threshold: 32
 payment_interval: 600
 max_additions_per_transaction: 400
 number_of_partials_target: 300
@@ -31,3 +32,9 @@ logging:
   log_level: INFO
   log_maxfilesrotation: 7
   log_stdout: false
+server:
+  server_host: 0.0.0.0
+  server_port: 8080
+  server_use_ssl: false
+  server_ssl_crt: config/ssl/domain/domain_srv.crt
+  server_ssl_key: config/ssl/domain/domain_srv.key
