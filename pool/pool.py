@@ -668,9 +668,10 @@ class Pool:
                 and request.payload.payout_instructions is not None
                 and len(hexstr_to_bytes(request.payload.payout_instructions)) == 32
             )
-            response_dict["payout_instructions"] = is_new_value
-            if is_new_value:
-                farmer_dict["payout_instructions"] = request.payload.payout_instructions
+            self.log.info(f"new payout_instructions{is_new_value} : {request.payload.launcher_id}")
+            #response_dict["payout_instructions"] = is_new_value
+            #if is_new_value:
+                #farmer_dict["payout_instructions"] = request.payload.payout_instructions
 
         if request.payload.suggested_difficulty is not None:
             is_new_value = (
