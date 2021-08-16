@@ -719,7 +719,6 @@ class Pool:
                 f"Updated difficulty for {launcher_id}:"
                 f"{self.farmer_update_cooldown_seconds}s delayed to {request.payload.suggested_difficulty}"
             )
-
         if request.payload.suggested_difficulty is not None:
             is_new_value = (
                 updated_record.difficulty != request.payload.suggested_difficulty
