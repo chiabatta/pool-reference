@@ -135,6 +135,7 @@ class Pool:
 
         # Only allow PUT /farmer per launcher_id every n seconds to prevent difficulty change attacks.
         self.farmer_update_blocked: set = set()
+        self.farmer_entry_update_blocked: set = set()
         self.farmer_update_cooldown_seconds: int = 600
 
         # These are the phs that we want to look for on chain, that we can claim to our pool
@@ -666,6 +667,9 @@ class Pool:
 
     async def update_farmer(self, request: PutFarmerRequest, metadata: RequestMetadata) -> Dict:
         launcher_id = request.payload.launcher_id
+        # if(launcher_id in self.farmer_entry_update_blocked):
+        #     return error_dict(PoolErrorCode.REQUEST_FAILED, f"Cannot enter update farmer method.")
+        # self.farmer_entry_update_blocked.add(launcher_id)
         # First check if this launcher_id is currently blocked for farmer updates, if so there is no reason to validate
         # all the stuff below
         if launcher_id in self.farmer_update_blocked:
@@ -732,6 +736,7 @@ class Pool:
 
         # TODO Fix chia-blockchain's Streamable implementation to support Optional in `from_json_dict`, then use
         # PutFarmerResponse here and in the trace up.
+        # self.farmer_entry_update_blocked.remove(launcher_id)
         return response_dict
 
     async def get_and_validate_singleton_state(
