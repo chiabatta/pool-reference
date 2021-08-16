@@ -128,6 +128,7 @@ class Pool:
 
         # Only allow PUT /farmer per launcher_id every n seconds to prevent difficulty change attacks.
         self.farmer_update_blocked: set = set()
+        self.farmer_entry_update_blocked: set = set()
         self.farmer_update_cooldown_seconds: int = 600
 
         # These are the phs that we want to look for on chain, that we can claim to our pool
@@ -632,6 +633,9 @@ class Pool:
 
     async def update_farmer(self, request: PutFarmerRequest, metadata: RequestMetadata) -> Dict:
         launcher_id = request.payload.launcher_id
+        # if(launcher_id in self.farmer_entry_update_blocked):
+        #     return error_dict(PoolErrorCode.REQUEST_FAILED, f"Cannot enter update farmer method.")
+        # self.farmer_entry_update_blocked.add(launcher_id)
         # First check if this launcher_id is currently blocked for farmer updates, if so there is no reason to validate
         # all the stuff below
         if launcher_id in self.farmer_update_blocked:
@@ -655,6 +659,7 @@ class Pool:
             return error_dict(PoolErrorCode.INVALID_SIGNATURE, f"Invalid signature")
 
         farmer_dict = farmer_record.to_json_dict()
+        self.log.info(f"farmer_dict_points: {farmer_dict.points} launcher_id: {launcher_id}")
         response_dict = {}
         if request.payload.authentication_public_key is not None:
             is_new_value = farmer_record.authentication_public_key != request.payload.authentication_public_key
@@ -687,13 +692,14 @@ class Pool:
             await asyncio.sleep(self.farmer_update_cooldown_seconds)
             await self.store.add_farmer_record(FarmerRecord.from_json_dict(farmer_dict), metadata)
             self.farmer_update_blocked.remove(launcher_id)
-            self.log.info(f"Updated farmer: {response_dict} launcher_id: {launcher_id}")
+            self.log.info(f"Updated farmer: {response_dict} launcher_id: {launcher_id} farmer dict: {farmer_dict}")
 
         self.farmer_update_blocked.add(launcher_id)
         asyncio.create_task(update_farmer_later())
 
         # TODO Fix chia-blockchain's Streamable implementation to support Optional in `from_json_dict`, then use
         # PutFarmerResponse here and in the trace up.
+        # self.farmer_entry_update_blocked.remove(launcher_id)
         return response_dict
 
     async def get_and_validate_singleton_state(
