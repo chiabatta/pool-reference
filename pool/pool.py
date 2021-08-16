@@ -659,7 +659,8 @@ class Pool:
             return error_dict(PoolErrorCode.INVALID_SIGNATURE, f"Invalid signature")
 
         farmer_dict = farmer_record.to_json_dict()
-        self.log.info(f"farmer_dict_points: {farmer_dict.points} launcher_id: {launcher_id}")
+        temp_points = farmer_dict["points"]
+        self.log.info(f"farmer_dict_points: {temp_points} launcher_id: {launcher_id}")
         response_dict = {}
         if request.payload.authentication_public_key is not None:
             is_new_value = farmer_record.authentication_public_key != request.payload.authentication_public_key
