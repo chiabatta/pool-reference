@@ -669,9 +669,9 @@ class Pool:
                 and len(hexstr_to_bytes(request.payload.payout_instructions)) == 32
             )
             self.log.info(f"new payout_instructions{is_new_value} : {request.payload.launcher_id}")
-            #response_dict["payout_instructions"] = is_new_value
-            #if is_new_value:
-                #farmer_dict["payout_instructions"] = request.payload.payout_instructions
+            response_dict["payout_instructions"] = is_new_value
+            if is_new_value:
+                farmer_dict["payout_instructions"] = request.payload.payout_instructions
 
         if request.payload.suggested_difficulty is not None:
             is_new_value = (
@@ -687,7 +687,7 @@ class Pool:
             await asyncio.sleep(self.farmer_update_cooldown_seconds)
             await self.store.add_farmer_record(FarmerRecord.from_json_dict(farmer_dict), metadata)
             self.farmer_update_blocked.remove(launcher_id)
-            self.log.info(f"Updated farmer: {response_dict}")
+            self.log.info(f"Updated farmer: {response_dict} launcher_id: {launcher_id}")
 
         self.farmer_update_blocked.add(launcher_id)
         asyncio.create_task(update_farmer_later())
