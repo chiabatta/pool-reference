@@ -77,7 +77,11 @@ class Pool:
         self.config = config
         self.constants = constants
 
-        self.store: AbstractPoolStore = pool_store or SqlitePoolStore()
+        if pool_config.get('store') == "MariadbPoolStore":
+            from .store.mariadb_store import MariadbPoolStore
+            self.store: AbstractPoolStore = pool_store or MariadbPoolStore()
+        else:
+            self.store: AbstractPoolStore = pool_store or SqlitePoolStore()
 
         self.pool_fee = pool_config["pool_fee"]
 
@@ -380,6 +384,7 @@ class Pool:
 
                 if total_amount_claimed < calculate_pool_reward(uint32(1)):  # 1.75 XCH
                     self.log.info(f"Do not have enough funds to distribute: {total_amount_claimed}, skipping payout")
+                    await asyncio.sleep(120)
                     continue
 
                 self.log.info(f"Total amount claimed: {total_amount_claimed / (10 ** 12)}")
